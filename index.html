@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Risk Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .calculator {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .risk-info {
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h2>Forex Risk Calculator</h2>
+        <div class="form-group">
+            <label for="accountBalance">Account Balance (USD)</label>
+            <input type="number" id="accountBalance" placeholder="Enter account balance" step="0.01">
+        </div>
+        
+        <div class="form-group">
+            <label for="currencyPair">Currency Pair</label>
+            <select id="currencyPair">
+                <option value="EURUSD">EUR/USD</option>
+                <option value="GBPUSD">GBP/USD</option>
+                <option value="USDJPY">USD/JPY</option>
+                <option value="AUDUSD">AUD/USD</option>
+                <option value="USDCAD">USD/CAD</option>
+                <option value="USDCHF">USD/CHF</option>
+                <option value="NZDUSD">NZD/USD</option>
+                <option value="custom">Custom</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="entryPrice">Entry Price</label>
+            <input type="number" id="entryPrice" placeholder="Enter entry price" step="0.00001">
+        </div>
+        
+        <div class="form-group">
+            <label for="stopLoss">Stop Loss Price</label>
+            <input type="number" id="stopLoss" placeholder="Enter stop loss price" step="0.00001">
+        </div>
+        
+        <div class="form-group">
+            <label for="takeProfit">Take Profit Price</label>
+            <input type="number" id="takeProfit" placeholder="Enter take profit price" step="0.00001">
+        </div>
+        
+        <div class="form-group">
+            <label for="riskPercentage">Risk Percentage (%)</label>
+            <input type="number" id="riskPercentage" value="2" step="0.1" min="0.1" max="100">
+        </div>
+        
+        <button onclick="calculateRisk()">Calculate Risk & Lot Size</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        function calculateRisk() {
+            // Get input values
+            const accountBalance = parseFloat(document.getElementById('accountBalance').value);
+            const entryPrice = parseFloat(document.getElementById('entryPrice').value);
+            const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+            const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+            const riskPercentage = parseFloat(document.getElementById('riskPercentage').value);
+            const currencyPair = document.getElementById('currencyPair').value;
+            
+            // Validation
+            if (!accountBalance || !entryPrice || !stopLoss || !takeProfit) {
+                showResult('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (accountBalance <= 0) {
+                showResult('Account balance must be positive', 'error');
+                return;
+            }
+            
+            // Calculate pips
+            let stopLossPips, takeProfitPips;
+            
+            // Determine pip calculation based on currency pair
+            if (currencyPair.includes('JPY')) {
+                // JPY pairs have 2 decimal places for pip value
+                stopLossPips = Math.abs(entryPrice - stopLoss) * 100;
+                takeProfitPips = Math.abs(takeProfit - entryPrice) * 100;
+            } else {
+                // Most pairs have 4 decimal places for pip value
+                stopLossPips = Math.abs(entryPrice - stopLoss) * 10000;
+                takeProfitPips = Math.abs(takeProfit - entryPrice) * 10000;
+            }
+            
+            // Calculate maximum risk amount (2% of account)
+            const maxRiskAmount = accountBalance * (riskPercentage / 100);
+            
+            // Calculate pip value for different lot sizes
+            let pipValue;
+            if (currencyPair.includes('JPY')) {
+                pipValue = 0.01; // For 0.01 lot on JPY pairs
+            } else {
+                pipValue = 0.0001; // For 0.01 lot on most pairs
+            }
+            
+            // Calculate optimal lot size to stay within risk limit
+            let optimalLotSize = 0.01;
+            let riskAmount = stopLossPips * pipValue * (optimalLotSize / 0.01);
+            
+            // Adjust lot size to stay within risk limit
+            while (riskAmount <= maxRiskAmount && optimalLotSize < 100) {
+                optimalLotSize += 0.01;
+                riskAmount = stopLossPips * pipValue * (optimalLotSize / 0.01);
+            }
+            
+            // Step back to the last safe lot size
+            optimalLotSize = Math.max(0.01, optimalLotSize - 0.01);
+            riskAmount = stopLossPips * pipValue * (optimalLotSize / 0.01);
+            
+            // Calculate position size in units
+            const positionSize = optimalLotSize * 1000; // 0.01 lot = 1,000 units
+            
+            // Calculate potential profit
+            const potentialProfit = takeProfitPips * pipValue * (optimalLotSize / 0.01);
+            
+            // Calculate risk-reward ratio
+            const riskRewardRatio = (potentialProfit / riskAmount).toFixed(2);
+            
+            // Prepare result message
+            let resultHTML = `
+                <div class="risk-info">
+                    <strong>Calculation Results:</strong><br>
+                    Stop Loss: ${stopLossPips.toFixed(1)} pips<br>
+                    Take Profit: ${takeProfitPips.toFixed(1)} pips<br>
+                    Risk/Reward Ratio: 1:${riskRewardRatio}<br><br>
+                    
+                    <strong>Recommended Position:</strong><br>
+                    Lot Size: ${optimalLotSize.toFixed(2)}<br>
+                    Position Size: ${positionSize.toFixed(0)} units<br>
+                    Risk Amount: $${riskAmount.toFixed(2)}<br>
+                    Potential Profit: $${potentialProfit.toFixed(2)}<br>
+                    Risk Percentage: ${((riskAmount / accountBalance) * 100).toFixed(2)}% of account
+                </div>
+            `;
+            
+            // Check if risk exceeds 2%
+            if (riskAmount > maxRiskAmount) {
+                showResult('WARNING: Risk exceeds ' + riskPercentage + '% of account! ' + resultHTML, 'warning');
+            } else {
+                showResult('Risk within acceptable limits. ' + resultHTML, 'success');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = 'result ' + type;
+            resultDiv.style.display = 'block';
+        }
+        
+        // Add event listener for currency pair change
+        document.getElementById('currencyPair').addEventListener('change', function() {
+            if (this.value === 'custom') {
+                const customPair = prompt('Enter custom currency pair (e.g., EURUSD):');
+                if (customPair) {
+                    this.innerHTML += `<option value="${customPair}" selected>${customPair}</option>`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
